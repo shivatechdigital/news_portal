@@ -9,7 +9,7 @@ const pageSizes = [20, 50, 100, 200];
 const categories = ['all', 'india', 'world', 'business', 'sports', 'tech', 'entertainment', 'local'];
 const statuses = ['all', 'published', 'draft'];
 type SortKey = 'id' | 'title' | 'category' | 'status' | 'views';
-type Article = { id: number; title: string; slug: string; summary?: string; category: string; status: string; views: number; created_at?: string; published_at?: string };
+type Article = { id: number; title: string; slug: string; summary?: string; meta_description?: string; content?: string; source_name?: string; source_url?: string; image_url?: string; category: string; status: string; views: number; created_at?: string; published_at?: string };
 
 export default function AdminArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -23,6 +23,7 @@ export default function AdminArticlesPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState('');
 
   useEffect(() => {
     const dark = window.localStorage.getItem('newsportal-theme') === 'dark';
@@ -62,7 +63,24 @@ export default function AdminArticlesPage() {
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
   const toggleSelected = (id: number) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const toggleSelectAll = () => setSelectedIds((current) => allVisibleSelected ? current.filter((id) => !visibleIds.includes(id)) : [...new Set([...current, ...visibleIds])]);
-  const changeSelectedStatus = (status: string) => { setArticles((current) => current.map((article) => selectedIds.includes(article.id) ? { ...article, status } : article)); setSelectedIds([]); };
+  const changeSelectedStatus = async (status: string) => {
+    const selectedArticles = articles.filter((article) => selectedIds.includes(article.id));
+    if (!selectedArticles.length) return;
+    setBulkMessage(`Saving ${selectedArticles.length} article${selectedArticles.length === 1 ? '' : 's'}...`);
+    try {
+      const responses = await Promise.all(selectedArticles.map((article) => fetch(`${API_URL}/api/articles/${article.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...article, content: article.content || `<p>${article.summary || article.title}</p>`, status }),
+      })));
+      if (responses.some((response) => !response.ok)) throw new Error('Update failed');
+      setArticles((current) => current.map((article) => selectedIds.includes(article.id) ? { ...article, status } : article));
+      setSelectedIds([]);
+      setBulkMessage(`${selectedArticles.length} article${selectedArticles.length === 1 ? '' : 's'} updated successfully.`);
+    } catch {
+      setBulkMessage('Could not save the selected article status. Please try again.');
+    }
+  };
   const sortIndicator = (key: SortKey) => sortKey === key ? (sortDirection === 'asc' ? '↑' : '↓') : '↕';
   const pageStart = filtered.length ? (currentPage - 1) * pageSize + 1 : 0;
   const pageEnd = Math.min(currentPage * pageSize, filtered.length);
