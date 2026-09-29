@@ -12,7 +12,7 @@ const hindi = Noto_Sans_Devanagari({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL!),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3002'),
   title: {
     default: 'NewsPortal - Latest Hindi News',
     template: '%s | NewsPortal',
