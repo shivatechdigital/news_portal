@@ -99,6 +99,18 @@ html { scroll-behavior: smooth; }
 .admin-nav-link { display: flex; }
 .article-row { color: inherit; text-decoration: none; }
 .article-row:hover { background: #fff7fa; }
+.table-range { display: block; color: #99a2b2; font-size: 9px; margin-top: 4px; }
+.table-tools { display: flex; align-items: center; gap: 10px; }
+.page-size { display: flex; align-items: center; gap: 5px; color: #78849a; font-size: 10px; }
+.page-size select { border: 1px solid #dfe4ee; border-radius: 5px; padding: 7px 5px; color: #526079; background: #fff; outline: 0; }
+.full-table-head button { padding: 0; border: 0; color: inherit; background: transparent; text-align: left; text-transform: inherit; letter-spacing: inherit; font: inherit; cursor: pointer; }
+.full-table-head button:hover { color: #ff3d72; }
+.pagination-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 20px; color: #8a95a8; font-size: 10px; }
+.pagination-bar > div { display: flex; align-items: center; gap: 5px; }
+.pagination-bar button { display: inline-flex; align-items: center; gap: 4px; min-width: 29px; min-height: 29px; justify-content: center; padding: 5px 8px; border: 1px solid #e0e5ee; border-radius: 5px; color: #66738a; background: #fff; font-size: 10px; cursor: pointer; }
+.pagination-bar button:hover:not(:disabled), .pagination-bar button.active-page { color: #fff; background: #ff3d72; border-color: #ff3d72; }
+.pagination-bar button:disabled { opacity: .4; cursor: not-allowed; }
+@media (max-width: 760px) { .table-tools { justify-content: space-between; }.admin-list-search { flex: 1; width: auto; }.pagination-bar { align-items: flex-start; flex-direction: column; }.pagination-bar > div { width: 100%; justify-content: space-between; } }
 .admin-list-card { padding: 0; overflow: hidden; }.admin-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #edf0f5; }.admin-list-toolbar strong { font-size: 14px; }.admin-list-search { display: flex; align-items: center; gap: 7px; width: 240px; padding: 8px 10px; color: #8994a8; border: 1px solid #dfe4ee; border-radius: 6px; }.admin-list-search input { width: 100%; border: 0; outline: 0; font-size: 11px; }.admin-full-table { overflow-x: auto; }.full-table-head, .full-table-row { display: grid; grid-template-columns: 52px 42px minmax(280px, 2fr) .8fr .75fr .45fr minmax(135px, .9fr); align-items: center; gap: 12px; min-width: 900px; }.full-table-head { padding: 11px 20px; color: #a0a8b7; text-transform: uppercase; letter-spacing: .08em; font-size: 8px; background: #fafbfe; border-bottom: 1px solid #edf0f5; }.full-table-row { min-height: 70px; padding: 9px 20px; border-bottom: 1px solid #f0f2f6; font-size: 10px; }.full-table-row:hover { background: #fff8fa; }.full-article-title { min-width: 0; color: #35415a; text-decoration: none; }.full-article-title strong, .full-article-title small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }.full-article-title strong { font-size: 11px; }.full-article-title small { color: #969faf; margin-top: 4px; font-size: 9px; }.row-actions .edit-button, .row-actions .delete-button { display: inline-flex; align-items: center; gap: 4px; }
 @media (max-width: 760px) { .admin-list-toolbar { align-items: stretch; flex-direction: column; }.admin-list-search { width: auto; }.admin-full-table { margin-right: -16px; } }
 .admin-article-table { overflow-x: auto; }
