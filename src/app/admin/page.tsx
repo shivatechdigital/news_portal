@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   Activity,
   Bell,
@@ -29,6 +30,7 @@ import {
 type AdminArticle = {
   id: number;
   title: string;
+  slug: string;
   category: string;
   status: 'draft' | 'published' | string;
   views: number;
@@ -39,11 +41,11 @@ type AdminArticle = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.shivatechdigital.com';
 
 const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard },
-  { label: 'Articles', icon: Newspaper },
-  { label: 'Categories', icon: Grid2X2 },
-  { label: 'Analytics', icon: Activity },
-  { label: 'Sources', icon: BookOpen },
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
+  { label: 'Articles', icon: Newspaper, href: '/search' },
+  { label: 'Categories', icon: Grid2X2, href: '/category/india' },
+  { label: 'Analytics', icon: Activity, href: '/admin#analytics' },
+  { label: 'Sources', icon: BookOpen, href: '/admin#sources' },
 ];
 
 function MiniLineChart() {
@@ -109,7 +111,7 @@ export default function AdminDashboard() {
         <label className="admin-search"><Search size={16} /><input placeholder="Search menu..." /></label>
         <p className="menu-caption">Workspace</p>
         <nav className="admin-nav">
-          {navItems.map(({ label, icon: Icon }) => <button key={label} className={activeNav === label ? 'active' : ''} onClick={() => { setActiveNav(label); setSidebarOpen(false); }}><Icon size={17} /><span>{label}</span>{label === 'Articles' && <b className="nav-count">{totalArticles}</b>}{label !== 'Dashboard' && label !== 'Articles' && <ChevronRight size={15} className="nav-arrow" />}</button>)}
+          {navItems.map(({ label, icon: Icon, href }) => <Link key={label} href={href} className={`admin-nav-link ${activeNav === label ? 'active' : ''}`} onClick={() => { setActiveNav(label); setSidebarOpen(false); }}><Icon size={17} /><span>{label}</span>{label === 'Articles' && <b className="nav-count">{totalArticles}</b>}{label !== 'Dashboard' && label !== 'Articles' && <ChevronRight size={15} className="nav-arrow" />}</Link>)}
         </nav>
         <p className="menu-caption lower">Manage</p>
         <nav className="admin-nav"><button><Users size={17} /><span>Users</span><ChevronRight size={15} className="nav-arrow" /></button><button><Settings size={17} /><span>Settings</span><ChevronRight size={15} className="nav-arrow" /></button><button><HelpCircle size={17} /><span>Help center</span></button></nav>
@@ -128,7 +130,7 @@ export default function AdminDashboard() {
 
           <section className="dashboard-grid top-panels"><div className="panel channel-panel"><div className="panel-heading"><div><h2>Content by category</h2><p>Published stories from API</p></div><button className="more-button" aria-label="More options"><MoreHorizontal size={19} /></button></div><div className="channel-body"><div className="donut"><div><strong>{publishedArticles.length}</strong><span>stories</span></div></div><div className="legend">{categoryCounts.length ? categoryCounts.map(([category, count], index) => <LegendItem key={category} color={['#ff3d72', '#5446e8', '#ff981f', '#24c486', '#8d8a9e'][index]} label={category} value={count.toString()} />) : <span className="empty-state">No published articles yet</span>}</div></div></div><div className="panel events-panel"><div className="panel-heading"><div><h2>Reader activity</h2><p>Connect analytics for reader trends</p></div><button className="more-button" aria-label="More options"><MoreHorizontal size={19} /></button></div><div className="chart-legend"><span><i className="dot blue" />Articles</span><span><i className="dot pink" />Views</span><span><i className="dot orange" />Pending</span></div><MiniLineChart /></div><div className="panel device-panel"><div className="panel-heading"><div><h2>Portal health</h2><p>Live API overview</p></div><span className={`health-pill ${apiStatus === 'connected' ? '' : 'offline'}`}>● {apiStatus === 'connected' ? 'Connected' : apiStatus === 'loading' ? 'Checking' : 'Offline'}</span></div><div className="health-list"><HealthRow label="API status" value={apiStatus === 'connected' ? 'Connected' : 'Unavailable'} /><HealthRow label="Database" value={apiStatus === 'connected' ? 'Connected' : 'Unknown'} /><HealthRow label="Published" value={publishedArticles.length.toString()} /><HealthRow label="Last sync" value={apiStatus === 'connected' ? 'Just now' : '—'} /></div><div className="health-bar"><span style={{ width: apiStatus === 'connected' ? '100%' : '20%' }} /></div></div></section>
 
-          <section className="dashboard-grid bottom-panels"><div className="panel recent-panel"><div className="panel-heading"><div><h2>Recent articles</h2><p>Latest stories from your database</p></div><button className="view-all">{articles.length} loaded <ChevronRight size={15} /></button></div><div className="article-table"><div className="table-head"><span>Article</span><span>Category</span><span>Status</span><span>Views</span></div>{recentArticles.length ? recentArticles.map((article) => <div className="article-row" key={article.id}><div className="article-name"><span className="article-thumb"><Sparkles size={15} /></span><div><strong>{article.title}</strong><small>{formatTime(article.published_at || article.created_at)}</small></div></div><span className="category-label">{article.category}</span><span className={`status ${article.status.toLowerCase()}`}>{article.status}</span><span className="views">{formatViews(Number(article.views) || 0)}</span></div>) : <div className="empty-state">{apiStatus === 'loading' ? 'Loading articles...' : 'No articles found.'}</div>}</div></div><div className="panel quick-panel"><div className="panel-heading"><div><h2>Quick actions</h2><p>Manage your newsroom</p></div></div><button className="quick-action primary"><Sparkles size={18} /><span><strong>Generate article</strong><small>Start with AI assistance</small></span><ChevronRight size={16} /></button><button className="quick-action"><FileText size={18} /><span><strong>Review drafts</strong><small>{pendingArticles.length} articles waiting</small></span><ChevronRight size={16} /></button><button className="quick-action"><Flame size={18} /><span><strong>Published stories</strong><small>{publishedArticles.length} live on portal</small></span><ChevronRight size={16} /></button><div className="tip"><Sparkles size={16} /><span><strong>Live data</strong><br />Dashboard values are loaded from your news API.</span></div></div></section>
+          <section className="dashboard-grid bottom-panels"><div className="panel recent-panel"><div className="panel-heading"><div><h2>Recent articles</h2><p>Latest stories from your database</p></div><Link href="/search" className="view-all">{articles.length} loaded <ChevronRight size={15} /></Link></div><div className="article-table"><div className="table-head"><span>Article</span><span>Category</span><span>Status</span><span>Views</span></div>{recentArticles.length ? recentArticles.map((article) => <Link className="article-row" href={`/news/${article.slug}`} key={article.id}><div className="article-name"><span className="article-thumb"><Sparkles size={15} /></span><div><strong>{article.title}</strong><small>{formatTime(article.published_at || article.created_at)}</small></div></div><span className="category-label">{article.category}</span><span className={`status ${article.status.toLowerCase()}`}>{article.status}</span><span className="views">{formatViews(Number(article.views) || 0)}</span></Link>) : <div className="empty-state">{apiStatus === 'loading' ? 'Loading articles...' : 'No articles found.'}</div>}</div></div><div className="panel quick-panel"><div className="panel-heading"><div><h2>Quick actions</h2><p>Manage your newsroom</p></div></div><Link href="/search" className="quick-action primary"><Sparkles size={18} /><span><strong>Browse articles</strong><small>Open the live article feed</small></span><ChevronRight size={16} /></Link><Link href="/search?q=draft" className="quick-action"><FileText size={18} /><span><strong>Review drafts</strong><small>{pendingArticles.length} articles waiting</small></span><ChevronRight size={16} /></Link><Link href="/category/india" className="quick-action"><Flame size={18} /><span><strong>Published stories</strong><small>{publishedArticles.length} live on portal</small></span><ChevronRight size={16} /></Link><div className="tip"><Sparkles size={16} /><span><strong>Live data</strong><br />Dashboard values are loaded from your news API.</span></div></div></section>
         </div>
       </main>
     </div>
