@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Noto_Sans_Devanagari } from 'next/font/google';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
-import BreakingNewsBar from '@/components/layout/BreakingNewsBar';
+import SiteChrome from '@/components/layout/SiteChrome';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -46,10 +44,7 @@ export default function RootLayout({
   return (
     <html lang="hi" className={`${inter.variable} ${hindi.variable}`}>
       <body className="font-sans bg-gray-50 text-gray-900 antialiased">
-        <BreakingNewsBar />
-        <Header />
-        <main className="min-h-screen">{children}</main>
-        <Footer />
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   );
