@@ -40,14 +40,15 @@ app.get('/api/articles', async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 20, 100);
     const offset = (page - 1) * limit;
     const category = req.query.category;
+    const includeAll = req.query.admin === 'true';
 
     const where = category
-      ? 'WHERE status = ? AND category = ?'
-      : 'WHERE status = ?';
+      ? `${includeAll ? 'WHERE category = ?' : 'WHERE status = ? AND category = ?'}`
+      : `${includeAll ? '' : 'WHERE status = ?'}`;
 
     const values = category
-      ? ['published', category]
-      : ['published'];
+      ? (includeAll ? [category] : ['published', category])
+      : (includeAll ? [] : ['published']);
 
     const [articles] = await pool.query(
       `SELECT * FROM articles ${where}
@@ -86,6 +87,44 @@ app.get('/api/articles/:slug', async (req, res) => {
     }
 
     res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/articles/:id', async (req, res) => {
+  try {
+    const {
+      title, slug, meta_description, content, summary, source_name,
+      source_url, category, image_url, status
+    } = req.body;
+    const allowedCategories = ['india', 'world', 'business', 'sports', 'tech', 'entertainment', 'local'];
+
+    if (!title || !slug || !content || !category || !allowedCategories.includes(category)) {
+      return res.status(400).json({ error: 'Valid title, slug, content and category are required' });
+    }
+
+    const publishedAt = status === 'published' ? new Date() : null;
+    const [result] = await pool.query(
+      `UPDATE articles SET title = ?, slug = ?, meta_description = ?, content = ?,
+       summary = ?, source_name = ?, source_url = ?, category = ?, image_url = ?,
+       status = ?, published_at = COALESCE(?, published_at), updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [title, slug, meta_description || '', content, summary || '', source_name || '', source_url || '', category, image_url || '', status || 'draft', publishedAt, req.params.id]
+    );
+
+    if (!result.affectedRows) return res.status(404).json({ error: 'Article not found' });
+    res.json({ message: 'Article updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/articles/:id', async (req, res) => {
+  try {
+    const [result] = await pool.query('DELETE FROM articles WHERE id = ?', [req.params.id]);
+    if (!result.affectedRows) return res.status(404).json({ error: 'Article not found' });
+    res.json({ message: 'Article deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
