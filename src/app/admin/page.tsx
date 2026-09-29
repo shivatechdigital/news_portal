@@ -17,11 +17,13 @@ import {
   LayoutDashboard,
   Menu,
   MoreHorizontal,
+  Moon,
   Newspaper,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
+  Sun,
   TrendingUp,
   Users,
   X,
@@ -67,6 +69,22 @@ export default function AdminDashboard() {
   const [totalArticles, setTotalArticles] = useState(0);
   const [apiStatus, setApiStatus] = useState<'loading' | 'connected' | 'offline'>('loading');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const dark = window.localStorage.getItem('newsportal-theme') === 'dark';
+    setIsDarkMode(dark);
+    document.documentElement.classList.toggle('dark', dark);
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDarkMode((current) => {
+      const next = !current;
+      document.documentElement.classList.toggle('dark', next);
+      window.localStorage.setItem('newsportal-theme', next ? 'dark' : 'light');
+      return next;
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +141,7 @@ export default function AdminDashboard() {
       {sidebarOpen && <button className="admin-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" />}
 
       <main className="admin-main">
-        <header className="admin-topbar"><button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Menu size={22} /></button><div className="topbar-title"><span>Dashboard</span><small>{today}</small></div><div className="topbar-actions"><button className="icon-action" aria-label="Search"><Search size={19} /></button><button className="icon-action notification" aria-label="Notifications"><Bell size={19} /><i>{pendingArticles.length}</i></button><div className="top-user"><div className="profile-avatar small">P</div><span>Prashant</span><ChevronDown size={15} /></div></div></header>
+        <header className="admin-topbar"><button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Menu size={22} /></button><div className="topbar-title"><span>Dashboard</span><small>{today}</small></div><div className="topbar-actions"><button className="icon-action" aria-label="Search"><Search size={19} /></button><button className="icon-action" onClick={toggleTheme} aria-label="Toggle dark mode">{isDarkMode ? <Sun size={19} /> : <Moon size={19} />}</button><button className="icon-action notification" aria-label="Notifications"><Bell size={19} /><i>{pendingArticles.length}</i></button><div className="top-user"><div className="profile-avatar small">P</div><span>Prashant</span><ChevronDown size={15} /></div></div></header>
 
         <div className="admin-content">
           <div className="welcome-row"><div><p className="eyebrow">OVERVIEW</p><h1>Good morning, Prashant <span>✦</span></h1><p className="welcome-copy">Here is what is happening with your news portal today.</p></div><div className="date-control"><CalendarDays size={16} /><span>{range}</span><ChevronDown size={15} /></div></div>

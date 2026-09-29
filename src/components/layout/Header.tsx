@@ -22,8 +22,15 @@ export default function Header() {
 	}, []);
 
 	useEffect(() => {
-		if (isDarkMode) document.documentElement.classList.add('dark');
-		else document.documentElement.classList.remove('dark');
+		const storedTheme = window.localStorage.getItem('newsportal-theme');
+		const dark = storedTheme === 'dark';
+		setIsDarkMode(dark);
+		document.documentElement.classList.toggle('dark', dark);
+	}, []);
+
+	useEffect(() => {
+		document.documentElement.classList.toggle('dark', isDarkMode);
+		window.localStorage.setItem('newsportal-theme', isDarkMode ? 'dark' : 'light');
 	}, [isDarkMode]);
 
 	useEffect(() => {
