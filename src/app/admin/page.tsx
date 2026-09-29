@@ -105,7 +105,7 @@ export default function AdminDashboard() {
     <div className="admin-shell">
       <aside className={`admin-sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="admin-brand"><span className="brand-mark"><Newspaper size={20} /></span><span>News<span>Portal</span></span><button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu"><X size={20} /></button></div>
-        <div className="admin-profile"><div className="profile-avatar">P</div><div><strong>Prashant Sharma</strong><span>Administrator</span></div><span className="online-dot" /></div>
+        <div className="admin-profile"><div className="profile-avatar">P</div><div><strong>Prashant Yadav</strong><span>Administrator</span></div><span className="online-dot" /></div>
         <label className="admin-search"><Search size={16} /><input placeholder="Search menu..." /></label>
         <p className="menu-caption">Workspace</p>
         <nav className="admin-nav">
