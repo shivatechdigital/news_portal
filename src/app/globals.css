@@ -134,4 +134,24 @@ html { scroll-behavior: smooth; }
 @media (max-width: 760px) { .edit-topbar { height: auto; min-height: 64px; padding: 12px 16px; gap: 12px; flex-wrap: wrap; }.edit-top-actions { margin-left: auto; }.save-state, .preview-button { display: none; }.edit-content { padding: 24px 16px 45px; }.edit-heading { align-items: flex-start; flex-direction: column; }.edit-heading h1 { font-size: 25px; }.editor-grid { grid-template-columns: 1fr; }.editor-card { padding: 17px; }.admin-article-table { margin-right: -16px; }
 }
 
+.admin-route-shell { align-items: stretch; }
+.admin-route-content { min-width: 0; flex: 1; }
+.admin-route-content > .admin-shell { min-height: 100%; background: transparent; }
+.admin-route-content > .admin-shell > .admin-sidebar { display: none; }
+.admin-route-content > .admin-shell > .admin-main { width: 100%; }
+.admin-child-page { min-height: 100%; }
+.category-table { overflow-x: auto; }
+.category-table-head, .category-table-row { display: grid; grid-template-columns: 130px minmax(180px, 1.3fr) minmax(110px, .6fr) minmax(90px, .5fr) minmax(260px, 1.1fr); align-items: center; gap: 12px; min-width: 850px; border-bottom: 1px solid #dce3ee; }
+.category-table-head { padding: 12px 20px; color: #8e99ac; background: #f8fafe; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; border-top: 1px solid #dce3ee; }
+.category-table-row { min-height: 62px; padding: 8px 20px; color: #58657b; font-size: 11px; }
+.category-table-row:hover { background: #fff7fa; }
+.category-name { color: #2c3952; text-transform: capitalize; }
+.post-count { width: fit-content; min-width: 34px; padding: 5px 9px; border-radius: 15px; color: #5145d4; background: #efedff; font-weight: 800; text-align: center; }
+.category-state { width: fit-content; padding: 5px 9px; border-radius: 15px; font-size: 9px; font-weight: 800; }.category-state.active { color: #15975f; background: #e8faf1; }.category-state.inactive { color: #bd5865; background: #fff0f2; }.activate-button, .deactivate-button { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 4px; padding: 4px 7px; color: #fff; font-size: 8px; font-weight: 800; cursor: pointer; }.activate-button { background: #20ad70; }.deactivate-button { background: #ee9524; }
+.dark .category-table-head { color: #9eacc2; background: #10192a; border-color: #34425a; }
+.dark .category-table-row { color: #afbdd2; border-color: #34425a; }
+.dark .category-table-row:hover { background: #1c2940; }
+.dark .category-name { color: #edf2ff; }
+@media (max-width: 760px) { .admin-route-shell > .shared-admin-sidebar { display: none; }.admin-route-content { width: 100%; }.category-table { margin-right: -16px; } }
+
 .dark .admin-shell, .dark .edit-shell { background: #0d1424; color: #edf2ff; }.dark .admin-sidebar, .dark .admin-topbar, .dark .panel, .dark .stat-card, .dark .editor-card, .dark .edit-topbar, .dark .admin-list-card { background: #151e31; border-color: #29354b; }.dark .admin-brand, .dark .admin-side-footer, .dark .article-row, .dark .full-table-row { border-color: #29354b; }.dark .admin-brand, .dark .topbar-title span, .dark .welcome-row h1, .dark .panel-heading h2, .dark .stat-card strong, .dark .editor-card-heading h2, .dark .edit-heading h1 { color: #f4f7ff; }.dark .admin-nav button, .dark .admin-nav-link, .dark .top-user, .dark .category-label { color: #aebbd1; }.dark .admin-search, .dark .admin-list-search, .dark .editor-card input, .dark .editor-card textarea, .dark .editor-card select, .dark .date-control, .dark .preview-button, .dark .page-size select, .dark .pagination-bar button { color: #dce5f5; background: #10192a; border-color: #34425a; }.dark .admin-search input, .dark .admin-list-search input, .dark .editor-card input, .dark .editor-card textarea { color: #edf2ff; background: transparent; }.dark .full-table-head { background: #10192a; border-color: #29354b; }.dark .full-table-head button, .dark .full-table-head, .dark .table-range, .dark .empty-state { color: #9eacc2; }.dark .full-table-row:hover, .dark .article-row:hover { background: #1c2940; }.dark .article-name strong, .dark .full-article-title strong { color: #e8eefb; }.dark .article-name small, .dark .full-article-title small { color: #92a0b8; }.dark .bulk-toolbar { background: #281a2a; border-color: #513043; }.dark .bulk-toolbar select, .dark .bulk-toolbar button { color: #e8eefb; background: #151e31; border-color: #513043; }.dark .donut::before { background: #151e31; }.dark .health-list strong { color: #e8eefb; }

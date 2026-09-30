@@ -45,7 +45,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.shivatechdigital
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
   { label: 'Articles', icon: Newspaper, href: '/admin/articles' },
-  { label: 'Categories', icon: Grid2X2, href: '/category/india' },
+  { label: 'Categories', icon: Grid2X2, href: '/admin/categories' },
   { label: 'Analytics', icon: Activity, href: '/admin#analytics' },
   { label: 'Sources', icon: BookOpen, href: '/admin#sources' },
 ];

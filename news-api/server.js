@@ -25,12 +25,48 @@ const pool = mysql.createPool({
   connectionLimit: 10
 });
 
+pool.query(`CREATE TABLE IF NOT EXISTS category_settings (
+  category VARCHAR(50) PRIMARY KEY,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)`).catch((error) => console.error('Category settings initialization failed:', error.message));
+
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
     res.json({ status: 'ok', database: 'connected' });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+app.get('/api/categories', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT a.category AS name, COUNT(*) AS posts,
+       COALESCE(MAX(cs.is_active), 1) AS is_active
+       FROM articles a
+       LEFT JOIN category_settings cs ON cs.category = a.category
+       GROUP BY a.category
+       ORDER BY a.category ASC`
+    );
+    res.json({ categories: rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/categories/:category/status', async (req, res) => {
+  try {
+    const isActive = req.body.is_active ? 1 : 0;
+    await pool.query(
+      `INSERT INTO category_settings (category, is_active) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE is_active = VALUES(is_active)`,
+      [req.params.category, isActive]
+    );
+    res.json({ category: req.params.category, is_active: Boolean(isActive) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -43,9 +79,13 @@ app.get('/api/articles', async (req, res) => {
     const category = req.query.category;
     const includeAll = req.query.admin === 'true';
 
+    const activeCategoryClause = `NOT EXISTS (
+      SELECT 1 FROM category_settings cs
+      WHERE cs.category = articles.category AND cs.is_active = 0
+    )`;
     const where = category
-      ? `${includeAll ? 'WHERE category = ?' : 'WHERE status = ? AND category = ?'}`
-      : `${includeAll ? '' : 'WHERE status = ?'}`;
+      ? `${includeAll ? 'WHERE category = ?' : `WHERE status = ? AND category = ? AND ${activeCategoryClause}`}`
+      : `${includeAll ? '' : `WHERE status = ? AND ${activeCategoryClause}`}`;
 
     const values = category
       ? (includeAll ? [category] : ['published', category])
