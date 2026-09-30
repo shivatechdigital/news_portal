@@ -86,8 +86,21 @@ const requireAuth = async (req, res, next) => {
 };
 const requireAdmin = (req, res, next) => req.adminUser?.role === 'admin' ? next() : res.status(403).json({ error: 'Admin role required' });
 
+const permissionDefaults = {
+  admin: ['dashboard.view', 'articles.view', 'articles.create', 'articles.edit', 'articles.delete', 'articles.publish', 'categories.view', 'categories.manage', 'categories.delete', 'users.view', 'users.create', 'users.edit', 'users.delete', 'roles.manage', 'analytics.view', 'sources.view', 'settings.manage', 'profile.edit'],
+  editor: ['dashboard.view', 'articles.view', 'articles.create', 'articles.edit', 'articles.publish', 'categories.view', 'analytics.view', 'sources.view', 'profile.edit'],
+  author: ['dashboard.view', 'articles.view', 'articles.create', 'profile.edit'],
+};
+const loadPermissions = async (role) => {
+  const [rows] = await pool.query('SELECT permission FROM role_permissions WHERE role = ? ORDER BY permission', [role]);
+  return rows.map((row) => row.permission);
+};
+const requirePermission = (permission) => async (req, res, next) => {
+  const permissions = await loadPermissions(req.adminUser.role);
+  return permissions.includes(permission) ? next() : res.status(403).json({ error: `Permission required: ${permission}` });
+};
+
 const seedAdmin = async () => {
-  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return;
   await pool.query(`CREATE TABLE IF NOT EXISTS admin_users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
@@ -106,6 +119,18 @@ const seedAdmin = async () => {
     INDEX idx_user_id (user_id),
     FOREIGN KEY (user_id) REFERENCES admin_users(id) ON DELETE CASCADE
   )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS role_permissions (
+    role ENUM('admin', 'editor', 'author') NOT NULL,
+    permission VARCHAR(80) NOT NULL,
+    PRIMARY KEY (role, permission)
+  )`);
+  for (const [role, permissions] of Object.entries(permissionDefaults)) {
+    const [existing] = await pool.query('SELECT COUNT(*) AS total FROM role_permissions WHERE role = ?', [role]);
+    if (!Number(existing[0].total)) {
+      await pool.query('INSERT INTO role_permissions (role, permission) VALUES ?', [permissions.map((permission) => [role, permission])]);
+    }
+  }
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return;
   const [rows] = await pool.query('SELECT id FROM admin_users LIMIT 1');
   if (!rows.length) {
     await pool.query(
@@ -135,7 +160,8 @@ app.post('/api/auth/login', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     await pool.query('INSERT INTO admin_sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))', [sessionHash(token), rows[0].id]);
     res.setHeader('Set-Cookie', sessionCookie(token, 7 * 24 * 60 * 60));
-    res.json({ user: { id: rows[0].id, name: rows[0].name, email: rows[0].email, role: rows[0].role } });
+    const permissions = await loadPermissions(rows[0].role);
+    res.json({ user: { id: rows[0].id, name: rows[0].name, email: rows[0].email, role: rows[0].role, permissions } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -148,7 +174,7 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
   res.json({ message: 'Signed out' });
 });
 
-app.get('/api/auth/me', requireAuth, (req, res) => res.json({ user: req.adminUser }));
+app.get('/api/auth/me', requireAuth, async (req, res) => res.json({ user: { ...req.adminUser, permissions: await loadPermissions(req.adminUser.role) } }));
 
 app.put('/api/auth/profile', requireAuth, async (req, res) => {
   try {
@@ -173,12 +199,40 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/users', requireAuth, requireAdmin, async (_req, res) => {
+app.get('/api/roles', requireAuth, requireAdmin, async (_req, res) => {
+  const roles = {};
+  for (const role of ['admin', 'editor', 'author']) roles[role] = await loadPermissions(role);
+  res.json({ roles, defaults: permissionDefaults });
+});
+
+app.put('/api/roles/:role/permissions', requireAuth, requireAdmin, async (req, res) => {
+  const role = req.params.role;
+  const permissions = Array.isArray(req.body.permissions) ? [...new Set(req.body.permissions.map(String))] : [];
+  if (role === 'admin' && !permissions.includes('roles.manage')) permissions.push('roles.manage');
+  if (!['admin', 'editor', 'author'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  const allowed = new Set(Object.values(permissionDefaults).flat());
+  if (permissions.some((permission) => !allowed.has(permission))) return res.status(400).json({ error: 'Invalid permission' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query('DELETE FROM role_permissions WHERE role = ?', [role]);
+    if (permissions.length) await connection.query('INSERT INTO role_permissions (role, permission) VALUES ?', [permissions.map((permission) => [role, permission])]);
+    await connection.commit();
+    res.json({ role, permissions });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
+app.get('/api/users', requireAuth, requirePermission('users.view'), async (_req, res) => {
   const [users] = await pool.query('SELECT id, name, email, role, is_active, created_at FROM admin_users ORDER BY id ASC');
   res.json({ users });
 });
 
-app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
+app.post('/api/users', requireAuth, requirePermission('users.create'), async (req, res) => {
   try {
     const { name, email, password, role = 'author' } = req.body;
     if (!name || !email || !password || password.length < 8 || !['admin', 'editor', 'author'].includes(role)) return res.status(400).json({ error: 'Valid name, email, password (8+ chars), and role are required' });
@@ -189,14 +243,14 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put('/api/users/:id', requireAuth, requirePermission('users.edit'), async (req, res) => {
   const { name, role, is_active } = req.body;
   if (!name || !['admin', 'editor', 'author'].includes(role)) return res.status(400).json({ error: 'Valid name and role required' });
   await pool.query('UPDATE admin_users SET name = ?, role = ?, is_active = ? WHERE id = ?', [name, role, is_active ? 1 : 0, req.params.id]);
   res.json({ message: 'User updated' });
 });
 
-app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+app.delete('/api/users/:id', requireAuth, requirePermission('users.delete'), async (req, res) => {
   if (Number(req.params.id) === Number(req.adminUser.id)) return res.status(400).json({ error: 'You cannot delete your own account' });
   await pool.query('DELETE FROM admin_users WHERE id = ?', [req.params.id]);
   res.json({ message: 'User deleted' });
@@ -218,7 +272,7 @@ app.get('/api/categories', async (_req, res) => {
   }
 });
 
-app.put('/api/categories/:category/status', requireAuth, requireAdmin, async (req, res) => {
+app.put('/api/categories/:category/status', requireAuth, requirePermission('categories.manage'), async (req, res) => {
   try {
     const isActive = req.body.is_active ? 1 : 0;
     await pool.query(
@@ -232,7 +286,7 @@ app.put('/api/categories/:category/status', requireAuth, requireAdmin, async (re
   }
 });
 
-app.delete('/api/categories/:category', requireAuth, requireAdmin, async (req, res) => {
+app.delete('/api/categories/:category', requireAuth, requirePermission('categories.delete'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -248,7 +302,7 @@ app.delete('/api/categories/:category', requireAuth, requireAdmin, async (req, r
   }
 });
 
-app.get('/api/articles', (req, res, next) => req.query.admin === 'true' ? requireAuth(req, res, next) : next(), async (req, res) => {
+app.get('/api/articles', (req, res, next) => req.query.admin === 'true' ? requireAuth(req, res, () => requirePermission('articles.view')(req, res, next)) : next(), async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const requestedLimit = Number(req.query.limit) || 20;
@@ -311,7 +365,7 @@ app.get('/api/articles/:slug', async (req, res) => {
   }
 });
 
-app.put('/api/articles/:id', requireAuth, async (req, res) => {
+app.put('/api/articles/:id', requireAuth, requirePermission('articles.edit'), async (req, res) => {
   try {
     const {
       title, slug, meta_description, content, summary, source_name,
@@ -339,7 +393,7 @@ app.put('/api/articles/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/api/articles/:id', requireAuth, async (req, res) => {
+app.delete('/api/articles/:id', requireAuth, requirePermission('articles.delete'), async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM articles WHERE id = ?', [req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Article not found' });
