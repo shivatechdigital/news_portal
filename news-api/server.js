@@ -150,6 +150,29 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
 
 app.get('/api/auth/me', requireAuth, (req, res) => res.json({ user: req.adminUser }));
 
+app.put('/api/auth/profile', requireAuth, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    const currentPassword = String(req.body.current_password || '');
+    const newPassword = String(req.body.new_password || '');
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    if (newPassword) {
+      if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
+      const [rows] = await pool.query('SELECT password_hash FROM admin_users WHERE id = ? LIMIT 1', [req.adminUser.id]);
+      if (!rows.length || !verifyPassword(currentPassword, rows[0].password_hash)) return res.status(401).json({ error: 'Current password is incorrect' });
+      await pool.query('UPDATE admin_users SET name = ?, password_hash = ? WHERE id = ?', [name, hashPassword(newPassword), req.adminUser.id]);
+      await pool.query('DELETE FROM admin_sessions WHERE user_id = ? AND token_hash <> ?', [req.adminUser.id, sessionHash(parseCookies(req).news_admin_session)]);
+    } else {
+      await pool.query('UPDATE admin_users SET name = ? WHERE id = ?', [name, req.adminUser.id]);
+    }
+
+    res.json({ message: 'Profile updated', user: { ...req.adminUser, name } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/users', requireAuth, requireAdmin, async (_req, res) => {
   const [users] = await pool.query('SELECT id, name, email, role, is_active, created_at FROM admin_users ORDER BY id ASC');
   res.json({ users });
