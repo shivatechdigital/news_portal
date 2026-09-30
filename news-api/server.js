@@ -3,14 +3,17 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const crypto = require('crypto');
 
 const app = express();
 
 app.use(cors({
   origin: [
     'https://news.shivatechdigital.com',
-    'http://localhost:3002'
-  ]
+    'http://localhost:3002',
+    'http://localhost:3003'
+  ],
+  credentials: true
 }));
 
 app.use(express.json());
@@ -31,6 +34,89 @@ pool.query(`CREATE TABLE IF NOT EXISTS category_settings (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )`).catch((error) => console.error('Category settings initialization failed:', error.message));
 
+pool.query(`CREATE TABLE IF NOT EXISTS admin_users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('admin', 'editor', 'author') NOT NULL DEFAULT 'author',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)`).catch((error) => console.error('Admin users initialization failed:', error.message));
+
+pool.query(`CREATE TABLE IF NOT EXISTS admin_sessions (
+  token_hash CHAR(64) PRIMARY KEY,
+  user_id INT NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_user_id (user_id),
+  FOREIGN KEY (user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+)`).catch((error) => console.error('Admin sessions initialization failed:', error.message));
+
+const parseCookies = (request) => Object.fromEntries((request.headers.cookie || '').split(';').filter(Boolean).map((part) => {
+  const index = part.indexOf('=');
+  return [part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1))];
+}));
+const hashPassword = (password, salt = crypto.randomBytes(16).toString('hex')) => `${salt}:${crypto.scryptSync(password, salt, 64).toString('hex')}`;
+const verifyPassword = (password, stored) => {
+  const [salt, hash] = String(stored).split(':');
+  if (!salt || !hash) return false;
+  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), crypto.scryptSync(password, salt, 64));
+};
+const sessionHash = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const sessionCookie = (token, maxAge) => `news_admin_session=${token}; Path=/; Domain=.shivatechdigital.com; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+
+const requireAuth = async (req, res, next) => {
+  try {
+    const token = parseCookies(req).news_admin_session;
+    if (!token) return res.status(401).json({ error: 'Authentication required' });
+    const [rows] = await pool.query(
+      `SELECT u.id, u.name, u.email, u.role, u.is_active
+       FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id
+       WHERE s.token_hash = ? AND s.expires_at > NOW() LIMIT 1`,
+      [sessionHash(token)]
+    );
+    if (!rows.length || !rows[0].is_active) return res.status(401).json({ error: 'Session expired' });
+    req.adminUser = rows[0];
+    next();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+const requireAdmin = (req, res, next) => req.adminUser?.role === 'admin' ? next() : res.status(403).json({ error: 'Admin role required' });
+
+const seedAdmin = async () => {
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return;
+  await pool.query(`CREATE TABLE IF NOT EXISTS admin_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    email VARCHAR(190) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'editor', 'author') NOT NULL DEFAULT 'author',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS admin_sessions (
+    token_hash CHAR(64) PRIMARY KEY,
+    user_id INT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    FOREIGN KEY (user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+  )`);
+  const [rows] = await pool.query('SELECT id FROM admin_users LIMIT 1');
+  if (!rows.length) {
+    await pool.query(
+      'INSERT INTO admin_users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [process.env.ADMIN_NAME || 'Administrator', process.env.ADMIN_EMAIL.toLowerCase(), hashPassword(process.env.ADMIN_PASSWORD), 'admin']
+    );
+    console.log('Initial admin account created');
+  }
+};
+seedAdmin().catch((error) => console.error('Initial admin setup failed:', error.message));
+
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -38,6 +124,59 @@ app.get('/health', async (_req, res) => {
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    const [rows] = await pool.query('SELECT * FROM admin_users WHERE email = ? AND is_active = 1 LIMIT 1', [email]);
+    if (!rows.length || !verifyPassword(password, rows[0].password_hash)) return res.status(401).json({ error: 'Invalid email or password' });
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query('INSERT INTO admin_sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))', [sessionHash(token), rows[0].id]);
+    res.setHeader('Set-Cookie', sessionCookie(token, 7 * 24 * 60 * 60));
+    res.json({ user: { id: rows[0].id, name: rows[0].name, email: rows[0].email, role: rows[0].role } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
+  const token = parseCookies(req).news_admin_session;
+  await pool.query('DELETE FROM admin_sessions WHERE token_hash = ?', [sessionHash(token)]);
+  res.setHeader('Set-Cookie', sessionCookie('', 0));
+  res.json({ message: 'Signed out' });
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => res.json({ user: req.adminUser }));
+
+app.get('/api/users', requireAuth, requireAdmin, async (_req, res) => {
+  const [users] = await pool.query('SELECT id, name, email, role, is_active, created_at FROM admin_users ORDER BY id ASC');
+  res.json({ users });
+});
+
+app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, email, password, role = 'author' } = req.body;
+    if (!name || !email || !password || password.length < 8 || !['admin', 'editor', 'author'].includes(role)) return res.status(400).json({ error: 'Valid name, email, password (8+ chars), and role are required' });
+    const [result] = await pool.query('INSERT INTO admin_users (name, email, password_hash, role) VALUES (?, ?, ?, ?)', [name, String(email).toLowerCase(), hashPassword(password), role]);
+    res.status(201).json({ id: result.insertId, message: 'User created' });
+  } catch (error) {
+    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ error: error.code === 'ER_DUP_ENTRY' ? 'Email already exists' : error.message });
+  }
+});
+
+app.put('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { name, role, is_active } = req.body;
+  if (!name || !['admin', 'editor', 'author'].includes(role)) return res.status(400).json({ error: 'Valid name and role required' });
+  await pool.query('UPDATE admin_users SET name = ?, role = ?, is_active = ? WHERE id = ?', [name, role, is_active ? 1 : 0, req.params.id]);
+  res.json({ message: 'User updated' });
+});
+
+app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (Number(req.params.id) === Number(req.adminUser.id)) return res.status(400).json({ error: 'You cannot delete your own account' });
+  await pool.query('DELETE FROM admin_users WHERE id = ?', [req.params.id]);
+  res.json({ message: 'User deleted' });
 });
 
 app.get('/api/categories', async (_req, res) => {
@@ -56,7 +195,7 @@ app.get('/api/categories', async (_req, res) => {
   }
 });
 
-app.put('/api/categories/:category/status', async (req, res) => {
+app.put('/api/categories/:category/status', requireAuth, requireAdmin, async (req, res) => {
   try {
     const isActive = req.body.is_active ? 1 : 0;
     await pool.query(
@@ -70,7 +209,7 @@ app.put('/api/categories/:category/status', async (req, res) => {
   }
 });
 
-app.delete('/api/categories/:category', async (req, res) => {
+app.delete('/api/categories/:category', requireAuth, requireAdmin, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -86,7 +225,7 @@ app.delete('/api/categories/:category', async (req, res) => {
   }
 });
 
-app.get('/api/articles', async (req, res) => {
+app.get('/api/articles', (req, res, next) => req.query.admin === 'true' ? requireAuth(req, res, next) : next(), async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const requestedLimit = Number(req.query.limit) || 20;
@@ -149,7 +288,7 @@ app.get('/api/articles/:slug', async (req, res) => {
   }
 });
 
-app.put('/api/articles/:id', async (req, res) => {
+app.put('/api/articles/:id', requireAuth, async (req, res) => {
   try {
     const {
       title, slug, meta_description, content, summary, source_name,
@@ -177,7 +316,7 @@ app.put('/api/articles/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/articles/:id', async (req, res) => {
+app.delete('/api/articles/:id', requireAuth, async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM articles WHERE id = ?', [req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Article not found' });

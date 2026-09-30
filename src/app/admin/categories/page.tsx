@@ -29,6 +29,7 @@ export default function AdminCategoriesPage() {
     setMessage('Saving category status...');
     const response = await fetch(`${API_URL}/api/categories/${encodeURIComponent(name)}/status`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_active: active }),
     });
@@ -50,7 +51,7 @@ export default function AdminCategoriesPage() {
     const confirmed = window.confirm(`Delete ${category.name} and all ${category.posts} articles in it? This cannot be undone.`);
     if (!confirmed) return;
     setMessage(`Deleting ${category.name} and its articles...`);
-    const response = await fetch(`${API_URL}/api/categories/${encodeURIComponent(category.name)}`, { method: 'DELETE' });
+    const response = await fetch(`${API_URL}/api/categories/${encodeURIComponent(category.name)}`, { method: 'DELETE', credentials: 'include' });
     if (!response.ok) { setMessage('Could not delete category.'); return; }
     const payload = await response.json() as { deleted_articles?: number };
     setCategories((current) => current.filter((item) => item.name !== category.name));

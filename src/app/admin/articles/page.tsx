@@ -29,7 +29,7 @@ export default function AdminArticlesPage() {
     const dark = window.localStorage.getItem('newsportal-theme') === 'dark';
     setIsDarkMode(dark);
     document.documentElement.classList.toggle('dark', dark);
-    fetch(`${API_URL}/api/articles?limit=1000&admin=true`, { cache: 'no-store' })
+    fetch(`${API_URL}/api/articles?limit=1000&admin=true`, { cache: 'no-store', credentials: 'include' })
       .then((response) => response.json())
       .then((payload: { articles?: Article[] }) => setArticles(payload.articles || []))
       .catch(() => setArticles([]))
@@ -70,6 +70,7 @@ export default function AdminArticlesPage() {
     try {
       const responses = await Promise.all(selectedArticles.map((article) => fetch(`${API_URL}/api/articles/${article.id}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...article, content: article.content || `<p>${article.summary || article.title}</p>`, status }),
       })));

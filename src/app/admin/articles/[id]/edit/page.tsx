@@ -36,7 +36,7 @@ export default function ArticleEditPage({ params }: EditPageProps) {
     const loadArticle = async () => {
       const { id } = await params;
       try {
-        const response = await fetch(`${API_URL}/api/articles?limit=100&admin=true`, { cache: 'no-store' });
+        const response = await fetch(`${API_URL}/api/articles?limit=1000&admin=true`, { cache: 'no-store', credentials: 'include' });
         const payload = await response.json() as { articles?: EditArticle[] };
         const found = payload.articles?.find((item) => item.id === Number(id));
         if (!cancelled) setArticle(found || null);
@@ -59,6 +59,7 @@ export default function ArticleEditPage({ params }: EditPageProps) {
     setMessage('Saving...');
     const response = await fetch(`${API_URL}/api/articles/${article.id}`, {
       method: 'PUT',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(article),
     });
@@ -67,7 +68,7 @@ export default function ArticleEditPage({ params }: EditPageProps) {
 
   const handleDelete = async () => {
     if (!article || !window.confirm('Delete this article permanently?')) return;
-    const response = await fetch(`${API_URL}/api/articles/${article.id}`, { method: 'DELETE' });
+    const response = await fetch(`${API_URL}/api/articles/${article.id}`, { method: 'DELETE', credentials: 'include' });
     if (response.ok) router.push('/admin');
     else setMessage('Could not delete article.');
   };

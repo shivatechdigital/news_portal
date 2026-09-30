@@ -91,8 +91,8 @@ export default function AdminDashboard() {
     const loadDashboard = async () => {
       try {
           const [articlesResponse, healthResponse] = await Promise.all([
-            fetch(`${API_URL}/api/articles?limit=1000&admin=true`, { cache: 'no-store' }),
-          fetch(`${API_URL}/health`, { cache: 'no-store' }),
+            fetch(`${API_URL}/api/articles?limit=1000&admin=true`, { cache: 'no-store', credentials: 'include' }),
+          fetch(`${API_URL}/health`, { cache: 'no-store', credentials: 'include' }),
         ]);
         if (!articlesResponse.ok) throw new Error('Articles API unavailable');
         const payload = await articlesResponse.json() as { articles?: AdminArticle[]; total?: number };
