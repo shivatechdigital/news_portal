@@ -70,6 +70,22 @@ app.put('/api/categories/:category/status', async (req, res) => {
   }
 });
 
+app.delete('/api/categories/:category', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.query('DELETE FROM articles WHERE category = ?', [req.params.category]);
+    await connection.query('DELETE FROM category_settings WHERE category = ?', [req.params.category]);
+    await connection.commit();
+    res.json({ message: 'Category and all articles deleted', deleted_articles: result.affectedRows });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
 app.get('/api/articles', async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);

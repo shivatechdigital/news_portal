@@ -7,6 +7,7 @@ import { Search, Menu, X, Sun, Moon, TrendingUp } from 'lucide-react';
 import MobileMenu from './MobileMenu';
 import SearchBar from '../shared/SearchBar';
 import { siteConfig } from '@/config/site';
+import { useActiveCategories } from '@/hooks/useActiveCategories';
 
 export default function Header() {
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -14,6 +15,7 @@ export default function Header() {
 	const [isDarkMode, setIsDarkMode] = useState(false);
 	const [isScrolled, setIsScrolled] = useState(false);
 	const pathname = usePathname();
+	const activeCategories = useActiveCategories();
 
 	useEffect(() => {
 		const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -38,7 +40,7 @@ export default function Header() {
 		return () => { document.body.style.overflow = ''; };
 	}, [isMobileMenuOpen]);
 
-	const navLinks = siteConfig.categories.slice(0, 6);
+	const navLinks = activeCategories.slice(0, 6);
 
 	return (
 		<>

@@ -3,15 +3,16 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, ChevronRight } from 'lucide-react';
-import { siteConfig } from '@/config/site';
+import { useActiveCategories } from '@/hooks/useActiveCategories';
 
 interface MobileMenuProps { onClose: () => void; }
 
 export default function MobileMenu({ onClose }: MobileMenuProps) {
 	const pathname = usePathname();
+	const activeCategories = useActiveCategories();
 	const allLinks = [
 		{ name: 'Home', slug: '/' },
-		...siteConfig.categories.map((c) => ({ name: c.name, slug: `/category/${c.slug}` })),
+		...activeCategories.map((c) => ({ name: c.name, slug: `/category/${c.slug}` })),
 		{ name: 'About', slug: '/about' },
 		{ name: 'Contact', slug: '/contact' },
 	];
